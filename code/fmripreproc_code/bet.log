@@ -1,0 +1,3 @@
+time stamp: Wed Sep 29 09:54:24 MDT 2021
+ln -S /bet/t1w.nii.gz t1_fnirt_bet2 /home/amhe4269/fmripreproc_code/t1w.nii.gz 0.8mm rm t1w.nii.gz
+ln: target ‘t1w.nii.gz’ is not a directory
