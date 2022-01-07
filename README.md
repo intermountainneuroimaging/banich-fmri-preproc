@@ -14,9 +14,9 @@ Contents:
 # Workflow Summary
 _fmripreprpoc_ is a single command line tool used to run a standard fsl based preprocessing scheme for functional neuroimaging data. Key components of the pipeline include: skull stripping and tissue segmentation, fielmap estimation and distortion correction, motion correction, outlier detection, trimming, normalization to standard space, and AROMA denoising. 
 
-[image]!fmripreproc workflow diagram
+![fmripreproc workflow diagram](https://github.com/intermountainneuroimaging/banich-fmri-preproc/blob/main/support_images/fmripreproc-pipeline-workflow.jpg)
 
-"short methods section..."
+"fMRI data were preprocessed using FMRIB software library (FSL). Standard processing steps including brain extraction using Brain Extraction Tool (BET), distortion correction, and motion correction using a 12 degree of freedom model were performed for each functional image. Distortion correction was applied using fieldmap images derived from B0 mapping image pairs for each functional series. The intial 10 volumes of each functional series were removed to ensure intensity stabilization. Two stage image registration were used to spatially transform all functional series to MNI152 standard space using a 6 degree of freedom model between a single band reference image and high resolution strcutral scan, followed by a 12 degree of freedom model between the subject's high resolution strucutral scan and MNI152 high resolution scan. Scrubbing was performed by first detecting all functional frames with DVARS values exceeding 75th percentile + 1.5xIQR, and framewise displacement (FD) exceeding 0.9 mm. where DVARS is computed as the root mean square of the temporal change of the fMRI voxel-wise signal (cite), and FD is computed as the sum of the absolute values of the differentiated realignment estimates (by backwards differences) at every timepoint (Power et al., 2012). Denoising was performed using AROMA, where nonagrressive noise removal was used."
 
 
 ```bash
