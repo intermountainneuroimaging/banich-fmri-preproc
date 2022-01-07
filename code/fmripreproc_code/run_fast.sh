@@ -1,35 +1,35 @@
 #!/bin/bash
-#  run_bet
+#  run_fast
 #
 # SYNTAX
-#     run_bet $t1w $outfile $wd 
+#     run_fast $t1w $outfile $wd 
 #
 # DESCRIPTION
 #
 # Amy Hegarty, Intermountain Neuroimaging Consortium
-# 09-03-2021
+# 12-16-2021
 #______________________________________________________________________
 #
 #
 bidst1w=$1
 wd=$2
-log=bet.log
+log=fast.log
 #
-mkdir -p $wd/bet
-cd $wd/bet
+mkdir -p $wd/segment
+cd $wd/segment
 
 currentDate=`date`
 echo "time stamp: $currentDate" >> $log
 echo "$PWD" >> $log
 
-cmd="ln -s $bidst1w t1w.nii.gz "
+cmd="ln -s $bidst1w t1w_brain.nii.gz "
 echo $cmd >> $log
 $cmd >> $log 2>&1
 
-scripts=`dirname $0`
-cmd="$scripts/t1_fnirt_bet2 $PWD/t1w.nii.gz 0.8mm "  ## t1_fnirt_bet2 is a banich lab tool!!
+cmd="fast -g t1w_brain.nii.gz"  
 echo $cmd >> $log
 $cmd >> $log 2>&1
 
 
 exit 0
+

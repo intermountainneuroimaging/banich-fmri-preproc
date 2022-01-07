@@ -1,0 +1,5 @@
+
+#Usage: fmri preprocessing pipeline build on internal custom FSL scripts (banich lab)
+
+# general use...
+python ~/fmripreproc_wrapper.py --in=$wd --out=$wd/outputs/ --participant-label=114548

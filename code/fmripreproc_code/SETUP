@@ -1,0 +1,14 @@
+
+module use /projects/ics/modules
+module load fsl/6.0.3
+module load python/3.6.5
+
+#==========================================================
+# set banichlab path on top
+#==========================================================
+BANICHLAB_TOOLS1=/work/ics/data/projects/banichlab/tools/bin
+BANICHLAB_TOOLS2=/work/ics/data/projects/banichlab/labtools/updated/tools/bin
+source $BANICHLAB_TOOLS1/env_rmpath $BANICHLAB_TOOLS1
+source $BANICHLAB_TOOLS1/env_rmpath $BANICHLAB_TOOLS2
+source $BANICHLAB_TOOLS1/env_addpath $BANICHLAB_TOOLS1
+source $BANICHLAB_TOOLS1/env_addpath $BANICHLAB_TOOLS2

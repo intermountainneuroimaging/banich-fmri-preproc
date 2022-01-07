@@ -1,0 +1,118 @@
+#!/bin/bash
+# 
+# t1_fnirt_bet2
+#
+# SYNTAX
+#    t1_fnirt_bet2 Head HighRes Ref2mm Ref2mmMask
+#
+# ARGUMENTS
+#    Head         full path of unoriented anatomy 4D image file
+#    HighRes      high resolution specification: 1mm, 0.8mm, or 0.7mm (exact spelling required)
+#    Ref2mm       2mm template
+#    Ref2mmMask   2mm template mask
+#
+# DEFAULTS
+#    Head         $PWD/full_head.nii.gz
+#    HighRes      1mm
+#    Ref2mm       $FSLDIR/data/standard/MNI152_T1_2mm
+#    Ref2mmMask   $FSLDIR/data/standard/MNI152_T1_2mm_brain_mask_dil
+#
+# DESCRIPTION
+# In the location of the anatomy file, a t1bet subdirectory will be created.  The final result
+# can be viewed there with:
+#     fslview struc_acpc struc_acpc_brain_thr0 -l Red -t 0.5
+#
+# EXAMPLES (using 2mm reference defaults in unspecified args 3 and 4)
+#     t1_fnirt_bet2 $PWD/full_head.nii.gz 1mm
+#     t1_fnirt_bet2 $PWD/unstruc.nii.gz 0.8mm
+#     t1_fnirt_bet2 $PWD/unstruc.nii.gz 0.7mm
+#
+# FSL COMMANDS FROM
+#     /projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0:
+#        PreFreeSurfer/scripts/ACPCAlignment.shACPCAlignment.sh
+#        PreFreeSurfer/scripts/BrainExtraction_FNIRTbased.sh
+# with an additional command of threshold at zero to remove small negatives,
+# if any, in inverse brain mask region.
+#
+# HIGH RESOLUTION TEMPLATES
+#    1mm      from $FSLDIR/data/standard
+#    0.8mm    from /projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0/global/templates
+#    0.7mm    from /projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0/global/templates
+#
+# JMO,KLP
+# 03-17-2015
+#
+# KLP
+# 05-18-2015 updated from t1_fnirt_bet to t1_fnirt_bet2
+#            change these names so that the final thresholded result has name
+#            matching the pre-extract for later use with fnirt
+#            OLD: OutputBrainExtractedImage=struc_acpc_brain
+#            OLD: OutputBrainExtractedImageThr0=struc_acpc_brain_thr0
+#            NEW: OutputBrainExtractedImage=struc_acpc_brain_prethr0
+#            NEW: OutputBrainExtractedImageThr0=struc_acpc_brain
+#______________________________________________________________________________________________________________
+Head=${1:-$PWD/full_head.nii.gz}
+HighRes=${2:-1mm}
+Ref2mm=${3:-$FSLDIR/data/standard/MNI152_T1_2mm}
+Ref2mmMask=${4:-$FSLDIR/data/standard/MNI152_T1_2mm_brain_mask_dil}
+#______________________________________________________________________________________________________________
+if [ ! -f $Head ]; then
+    echo "Anatomy image $Head does not exist"
+    exit 6
+fi
+if [ "$HighRes" == "1mm" ]; then
+    Ref=$FSLDIR/data/standard/MNI152_T1_1mm
+    RefMask=$FSLDIR/data/standard/MNI152_T1_1mm_brain_mask
+elif [ "$HighRes" == "0.8mm" ]; then
+    Ref=/projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0/global/templates/MNI152_T1_0.8mm
+    RefMask=/projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0/global/templates/MNI152_T1_0.8mm_brain_mask
+elif [ "$HighRes" == "0.7mm" ]; then
+    Ref=/projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0/global/templates/MNI152_T1_0.7mm
+    RefMask=/projects/ics/software/hcp_pipeline/HCP_Pipelines-3.4.0/global/templates/MNI152_T1_0.7mm_brain_mask
+else
+    echo "HighRes option $HighRes is not one of {1mm, 0.8mm, 0.7mm}"
+    exit 7
+fi
+# 
+WD=`dirname $Head`
+here=$PWD
+cd $WD
+mkdir -p t1bet
+cd t1bet
+Input=struc.nii.gz
+Output=struc_acpc.nii.gz
+OutputMatrix=acpc.mat
+OutputBrainMask=struc_acpc_brain_mask
+#OutputBrainExtractedImage=struc_acpc_brain
+#OutputBrainExtractedImageThr0=struc_acpc_brain_thr0
+OutputBrainExtractedImage=struc_acpc_brain_prethr0
+OutputBrainExtractedImageThr0=struc_acpc_brain
+BrainSizeOpt=150
+#
+# AC PC Alignment
+#
+$FSLDIR/bin/fslreorient2std $Head $Input
+BaseName=`$FSLDIR/bin/remove_ext $Input`
+$FSLDIR/bin/robustfov -i "$Input" -m roi2full.mat -r robustroi.nii.gz -b  $BrainSizeOpt
+$FSLDIR/bin/convert_xfm -omat full2roi.mat -inverse roi2full.mat
+$FSLDIR/bin/flirt -interp spline -in robustroi.nii.gz -ref "$Ref" -omat roi2std.mat -out acpc_final.nii.gz -searchrx -30 30 -searchry -30 30 -searchrz -30 30
+$FSLDIR/bin/convert_xfm -omat full2std.mat -concat roi2std.mat full2roi.mat
+$FSLDIR/bin/aff2rigid full2std.mat "$OutputMatrix"
+$FSLDIR/bin/applywarp --rel --interp=spline -i "$Input" -r "$Ref" --premat="$OutputMatrix" -o "$Output"
+#
+# Brain Extract
+#
+Input=$Output
+BaseName=`$FSLDIR/bin/remove_ext $Input`
+FNIRTConfig=$FSLDIR/etc/flirtsch/T1_2_MNI152_2mm.cnf
+$FSLDIR/bin/flirt -interp spline -dof 12 -in "$Input" -ref "$Ref2mm" -omat roughlin.mat -out "$BaseName"_to_MNI_roughlin.nii.gz -nosearch
+$FSLDIR/bin/fnirt --in="$Input" --ref="$Ref2mm" --aff=roughlin.mat --refmask="$Ref2mmMask" --fout=str2standard.nii.gz --jout=NonlinearRegJacobians.nii.gz --refout=IntensityModulatedT1.nii.gz --iout="$BaseName"_to_MNI_nonlin.nii.gz --logout=NonlinearReg.txt --intout=NonlinearIntensities.nii.gz --cout=NonlinearReg.nii.gz --config="$FNIRTConfig"
+$FSLDIR/bin/applywarp --rel --interp=spline --in="$Input" --ref="$Ref" -w str2standard.nii.gz --out="$BaseName"_to_MNI_nonlin.nii.gz
+$FSLDIR/bin/invwarp --ref="$Ref2mm" -w str2standard.nii.gz -o standard2str.nii.gz
+$FSLDIR/bin/applywarp --rel --interp=nn --in="$RefMask" --ref="$Input" -w standard2str.nii.gz -o "$OutputBrainMask"
+$FSLDIR/bin/fslmaths "$Input" -mas "$OutputBrainMask" "$OutputBrainExtractedImage"
+#
+# THRESHOLD AT ZERO
+#
+fslmaths "$OutputBrainExtractedImage" -thr 0 "$OutputBrainExtractedImageThr0"
+ cd $here

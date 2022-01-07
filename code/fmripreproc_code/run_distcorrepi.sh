@@ -33,7 +33,8 @@
 epi=$1           # functional series for distortion correction
 topup_fout=$2    # output from topup  
 params=$3        # parameters for aquisition sequence
-wd=$4
+topupdir=$4
+wd=$5
 
 mkdir -p $wd/distcorrepi
 cd $wd/distcorrepi
@@ -49,7 +50,7 @@ distcorrepi=dc_${sname}
 distcorrepi_abs=dc_${sname}_abs
 
 # apply distortion correction to functional series
-cmd="applytopup --imain=$epifile --inindex=1 --topup=../topup/$topup_fout --datain=../topup/$params --method=jac --interp=spline --out=$distcorrepi"
+cmd="applytopup --imain=$epifile --inindex=1 --topup=../$topupdir/$topup_fout --datain=../$topupdir/$params --method=jac --interp=spline --out=$distcorrepi"
 echo $cmd >> $log
 $cmd >> $log 2>&1
 

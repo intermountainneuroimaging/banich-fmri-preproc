@@ -1,0 +1,99 @@
+#!/bin/bash
+#
+# mb_snr_calc
+#
+# KLP
+# 05-04-2015
+#_________________________________________________________________________
+subj=${1:-tx003}
+functitle=${2:-nback1}
+func=${3:-nbackrun1_mcf.nii.gz}
+regfunc=${4:-nbackrun1_SBRef_bet.nii.gz}
+brain=${5:-t1w_brain.nii.gz}
+head=${6:-t1w_brain.nii.gz}
+template=$FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz
+calcdir=snr_calc/$functitle
+here=$PWD
+mkdir -p $calcdir
+cd $calcdir
+rlog=reg.log
+slog=snr.log
+rm -rf $rlog $slog
+#
+#===========================================================================
+# REGISTRATION
+#===========================================================================
+#
+# register subject T1 to template
+#
+cmd="flirt -in ../../$brain -ref $template -omat brain2mni.mat"
+echo $cmd >> $rlog
+$cmd >> $rlog 2>&1
+#
+f=../../$func
+r=../../$regfunc
+b=func.nii.gz
+example_func=e${b}
+let rdim4=`fslval $r dim4`
+if [ $rdim4 -lt 2 ]; then
+    cmd="fslmaths $r $example_func"
+else
+    midvol=`fslval $r dim4 | awk '{printf("%d", ($1/2))}'`
+    cmd="fslroi $r $example_func $midvol 1"
+fi
+echo $cmd >> $rlog
+$cmd >> $rlog 2>&1
+#
+regname1=t${b} # example func registered to subject T1
+regname1_mat=`echo $regname1 | sed -e 's,.nii.gz,.mat,g'`
+brain_regname1_mat=b${regname1_mat}
+regname2=s${b} # functional registered to standard MNI template
+regname3=m${b} # masked functional registered to standard MNI template
+#
+# coregister subject functional to subject T1
+#
+cmd="epi_reg --epi=$example_func --t1=../../$head --t1brain=../../$brain --out=$regname1"
+echo $cmd >> $rlog
+$cmd >> $rlog 2>&1
+#
+# concatenate transforms
+#
+cmd="convert_xfm -omat $brain_regname1_mat -concat brain2mni.mat $regname1_mat"
+echo $cmd >> $rlog
+$cmd >> $rlog 2>&1
+#
+# register subject functional to template
+#
+cmd="flirt -in $f -ref $template -applyxfm -init $brain_regname1_mat -out $regname2"
+echo $cmd >> $rlog
+$cmd >> $rlog 2>&1
+#
+# mask results with template
+#
+cmd="fslmaths $regname2 -mas $template $regname3 -odt short"
+echo $cmd >> $rlog
+$cmd >> $rlog 2>&1
+#
+#===========================================================================
+# SNR CALCULATIONS
+#===========================================================================
+#
+cmd="getsnr $regname3 $subj $functitle"
+echo $cmd > $slog
+$cmd >> $slog 2>&1
+#
+#===========================================================================
+# CLEAN UP
+#===========================================================================
+#
+# remove intermediate registrations
+rm -rf efunc.nii.gz
+rm -rf sfunc.nii.gz
+rm -rf tfunc.nii.gz
+rm -rf tfunc_fast_wmedge.nii.gz
+rm -rf tfunc_fast_wmseg.nii.gz
+#
+# uncomment next line to remove final registration of reference volume to 2mm mni
+# rm mfunc.nii.gz
+#
+cd $here

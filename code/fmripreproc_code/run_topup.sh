@@ -35,8 +35,7 @@ pafmap=$2
 wd=$3
 TotalReadoutTime=${4:-0.0759712}
 
-mkdir -p ${wd}/topup
-wd="${wd}/topup"
+mkdir -p $wd
 cd $wd
 log="${wd}/topup.log"
 

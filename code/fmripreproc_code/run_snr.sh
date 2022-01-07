@@ -42,6 +42,7 @@ t1w=t1w.nii.gz
 ln -s $t1w_brain $t1w
 
 # run snr calculation....
-cmd="mb_snr_calc $subj $task $epi $sbref $t1w $t1w"
+scripts=`dirname $0`
+cmd="$scripts/mb_snr_calc $subj $task $epi $sbref $t1w $t1w"
 echo $cmd >> $log
 $cmd >> $log 2>&1
