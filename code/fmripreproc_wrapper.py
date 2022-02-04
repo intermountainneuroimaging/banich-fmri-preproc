@@ -128,7 +128,8 @@ def parse_arguments(argv):
         self.cleandir=cleandir
         self.runaroma=runaroma
         self.runfix=runfix
-        self.templates='/home/amhe4269/fmripreproc_code'
+        scriptsdir=os.path.dirname(os.path.realpath(__file__))
+        self.templates=scriptsdir+'/fmripreproc_code'
         self.overwrite=False
 
     entry = args(wd, inputs, outputs, pid, qc, cleandir, runaroma, runfix)
