@@ -990,6 +990,7 @@ def run_aroma_classify(layout,entry):
 
   return returnflag
 
+
 def save_aroma_outputs(layout,entry):
   import os
   import sys
@@ -1010,7 +1011,7 @@ def save_aroma_outputs(layout,entry):
 
     # Add additional info to output file entities
     ent['type'] = 'func'
-    ent['space'] = 'MNI152Nonlin2006'
+    ent['space'] = 'native'
     ent['desc'] = 'smoothAROMAnonaggr'
     ent['suffix'] = 'bold'
 
@@ -1069,7 +1070,13 @@ def generate_report():
 
   return True
 
-                                             
+
+  # generate snr tests...
+  # /projects/ics/software/fsl/6.0.3/bin/slicer highres2standard standard -s 2 -x 0.35 sla.png -x 0.45 slb.png -x 0.55 slc.png -x 0.65 sld.png -y 0.35 sle.png -y 0.45 slf.png -y 0.55 slg.png -y 0.65 slh.png -z 0.35 sli.png -z 0.45 slj.png -z 0.55 slk.png -z 0.65 sll.png ; /projects/ics/software/fsl/6.0.3/bin/pngappend sla.png + slb.png + slc.png + sld.png + sle.png + slf.png + slg.png + slh.png + sli.png + slj.png + slk.png + sll.png highres2standard1.png
+  # /projects/ics/software/fsl/6.0.3/bin/fsl_tsplot -i prefiltered_func_data_mcf.par -t 'MCFLIRT estimated translations (mm)' -u 1 --start=4 --finish=6 -a x,y,z -w 640 -h 144 -o trans.png
+   
+
+
 def run_cleanup(entry):
 
   import os
@@ -1144,7 +1151,13 @@ def main(argv):
   # aroma
   if run_aroma_icamodel(bids,entry) or run_aroma_classify(bids,entry):
     save_aroma_outputs(bids,entry)
-  
+
+  save_bet(bids,entry)
+  save_preprocess(bids,entry)
+  save_registration(bids,entry)
+  save_snr(bids,entry)
+  save_fast(bids,entry)
+  save_aroma_outputs(bids,entry)
   # clean-up
   # run_cleanup(entry)
     
