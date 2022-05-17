@@ -28,8 +28,8 @@ _fmripreprpoc_ is a single command line tool used to run a standard fsl based pr
           --work-dir=                 (Default: <outputs>/scratch/particiant-label) directory 
                                         path for working directory
           --clean-work-dir=           (Default: TRUE) clean working directory 
-          --trim-vols=                (Default: 10) trim inital volumes from all bold scans
-          --dummy-scans=              (Default: 10) add dummy scan indicator variables in confounds
+          --trimvols=                 (Default: 10) trim inital volumes from all bold scans
+          --dummyscans=               (Default: 10) add dummy scan indicator variables in confounds
                                         file. DO NOT use with "trim-vols"
           --outliers-fd=              (Default: 0.9mm) generate indicator variables for framewise
                                         displacement outliers above given threshold
