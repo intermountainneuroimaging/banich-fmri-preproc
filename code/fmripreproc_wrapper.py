@@ -20,6 +20,10 @@
 # [pybids]: Yarkoni et al., (2019). PyBIDS: Python tools for BIDS datasets. Journal of Open Source Software, 4(40), 1294, https://doi.org/10.21105/joss.01294
 #           Yarkoni, Tal, Markiewicz, Christopher J., de la Vega, Alejandro, Gorgolewski, Krzysztof J., Halchenko, Yaroslav O., Salo, Taylor, ? Blair, Ross. (2019, August 8). bids-standard/pybids: 0.9.3 (Version 0.9.3). Zenodo. http://doi.org/10.5281/zenodo.3363985
 #
+import os, sys, getopt, glob, bids, json, subprocess, multiprocessing, re, warnings
+from subprocess import PIPE
+import numpy as np
+import pandas as pd
 
 # ------------------------------------------------------------------------------
 #  Show usage information for this script
@@ -35,6 +39,14 @@ def print_help():
           --work-dir=                 (Default: <outputs>/scratch/particiant-label) directory 
                                         path for working directory
           --clean-work-dir=           (Default: TRUE) clean working directory 
+          --trimvols=                 (Default: 0) Select number of volumes to trim (REMOVE!!) 
+                                        from bold aquisitions in preprocessing
+          --dummyscans=               (In Development) add dummy scan indicator variables in confounds
+                                        file. DO NOT use with "trim-vols"
+          --outliers-fd=              (In Development) generate indicator variables for framewise
+                                        displacement outliers above given threshold
+          --outliers-dvars=           (In Development) generate indicator variables for dvars outliers
+                                        above given threshold
           --run-qc                    add flag to run automated quality 
                                         control for preprocessing
           --run-aroma                 add flag to run aroma noise removal on 
@@ -56,21 +68,18 @@ def print_help():
 
 def parse_arguments(argv):
 
-    import os
-    import sys
-    import getopt
-
     #intialize arguements
     print("\nParsing User Inputs...")
     qc = False
     cleandir = False
+    trimvols = 0
     runaroma = False
     runfix = False
     overwrite=False
 
 
     try:
-      opts, args = getopt.getopt(argv,"hi:o:",["in=","out=","help","participant-label=","work-dir=","clean-work-dir=","run-qc","run-aroma","run-fix"])
+      opts, args = getopt.getopt(argv,"hi:o:",["in=","out=","help","participant-label=","work-dir=","clean-work-dir=","trimvols","dummyscans=","outliers-fd=","outliers-dvars=","run-qc","run-aroma","run-fix"])
     except getopt.GetoptError:
       print_help()
       sys.exit(2)
@@ -90,6 +99,14 @@ def parse_arguments(argv):
          wd = arg
       elif opt in ("--clean-work-dir"):
          cleandir = arg
+      elif opt in ("--trimvols"):
+         trimvols = arg
+      elif opt in ("--dummyscans"):
+         raise Exception("--dummyscan not currently used in pipeline. Contact creators for more information.")
+      elif opt in ("--outliers-fd"):
+         raise Exception("--outliers-fd not currently used in pipeline. Contact creators for more information.")
+      elif opt in ("outliers-dvars"):
+         raise Exception("--outliers-dvars not currently used in pipeline. Contact creators for more information.")
       elif opt in ("--run-qc"):
          qc=True
       elif opt in ("--run-aroma"):
@@ -119,20 +136,21 @@ def parse_arguments(argv):
     print('Participant:\t\t', str(pid))
 
     class args:
-      def __init__(self, wd, inputs, outputs, pid, qc, cleandir, runaroma, runfix):
+      def __init__(self, wd, inputs, outputs, pid, qc, cleandir, trimvols, runaroma, runfix):
         self.wd = wd
         self.inputs = inputs
         self.outputs = outputs
         self.pid = pid
         self.runQC=qc
         self.cleandir=cleandir
+        self.trimvols=trimvols
         self.runaroma=runaroma
         self.runfix=runfix
-        scriptsdir=os.path.dirname(os.path.realpath(__file__))
-        self.templates=scriptsdir+'/fmripreproc_code'
+        dirname = os.path.dirname(os.path.abspath(__file__))
+        self.templates=dirname + '/fmripreproc_code'
         self.overwrite=False
 
-    entry = args(wd, inputs, outputs, pid, qc, cleandir, runaroma, runfix)
+    entry = args(wd, inputs, outputs, pid, qc, cleandir, trimvols, runaroma, runfix)
 
     return entry
 
@@ -140,10 +158,6 @@ def parse_arguments(argv):
 #  Parse Bids inputs for this script
 # ------------------------------------------------------------------------------
 def bids_data(entry):
-    import os
-    import glob
-    import bids
-    import json
 
     bids.config.set_option('extension_initial_dot', True)
 
@@ -178,8 +192,7 @@ def bids_data(entry):
 
 def worker(name,cmdfile):
     """Executes the bash script"""
-    import subprocess
-    from subprocess import PIPE
+
     process = subprocess.Popen(cmdfile.split(), stdout=PIPE, stderr=PIPE, universal_newlines=True)
     output, error = process.communicate()
     print(error)
@@ -201,10 +214,6 @@ def checkfile_string(filename,txt):
     return False  # The string does not exist in the file
 
 def run_bet(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
 
   returnflag=False
 
@@ -237,8 +246,6 @@ def run_bet(layout,entry):
 
 
 def save_bet(layout,entry):
-  import os
-  import sys
 
   t1w=layout.get(subject=entry.pid, extension='nii.gz', suffix='T1w')
   imgpath=t1w[0].path
@@ -273,12 +280,6 @@ def save_bet(layout,entry):
   ## end run_bet
 
 def run_topup(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
-  import numpy as np
-  import re
 
   # check for number of feildmap pairs
   fmapfiles=layout.get(subject=entry.pid, extension='nii.gz', suffix='epi');
@@ -346,11 +347,6 @@ def run_topup(layout,entry):
     ## end run_topup
 
 def run_distcorrepi(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
-  import glob
 
   itr=0;
   nfiles = len(layout.get(subject=entry.pid, extension='nii.gz', suffix='bold'))
@@ -423,10 +419,6 @@ def run_distcorrepi(layout,entry):
   ## end run_discorrpei
 
 def run_preprocess(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
 
   itr=0;
   nfiles = len(layout.get(subject=entry.pid, extension='nii.gz', suffix='bold'))
@@ -453,7 +445,6 @@ def run_preprocess(layout,entry):
       print('Using: ' + imgpath)
 
       # -------- run command  -------- #
-      entry.trimvols=10;  # make input!!
 
       cmd = "bash " + entry.templates + "/run_preprocess.sh " + imgpath + " " + ent['task'] + str(ent['run']) + " " + entry.wd + " " + str(entry.trimvols)
       print(cmd)
@@ -474,8 +465,6 @@ def run_preprocess(layout,entry):
   ## end run_preprocess
 
 def save_preprocess(layout,entry):
-  import os
-  import sys
 
   # Move output files to permanent location
   for func in layout.get(subject=entry.pid, extension='nii.gz', suffix='bold'):
@@ -517,10 +506,6 @@ def save_preprocess(layout,entry):
   ## END SAVE_PREPROCESS
 
 def run_registration(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
   
   jobs=[];
   returnflag=False
@@ -570,8 +555,6 @@ def run_registration(layout,entry):
   ## end run_registration
 
 def save_registration(layout,entry):
-  import os
-  import sys
 
   # move outputs to permanent location...
   for func in layout.get(subject=entry.pid, space='native', desc='preproc', extension='nii.gz', suffix=['bold']):
@@ -643,14 +626,7 @@ def save_registration(layout,entry):
 
 ## END SAVE_REGISTRATION
 
-
-
 def run_snr(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
-
 
   jobs=[];
   returnflag=False
@@ -695,8 +671,6 @@ def run_snr(layout,entry):
   ## end run_snr
 
 def save_snr(layout,entry):
-  import os
-  import sys
 
   # move outputs to permanent location...
   for func in layout.get(subject=entry.pid, space='native', desc='preproc', extension='nii.gz', suffix=['bold']):
@@ -728,10 +702,6 @@ def save_snr(layout,entry):
 #  --------------------- complete -------------------------- #
 
 def run_outliers(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
 
   jobs=[];
   returnflag=False
@@ -751,8 +721,6 @@ def run_outliers(layout,entry):
           print("Outlier Detection complete...skipping: " + ent['task'] + str(ent['run']))
           continue
           print(" ")
-
-      # ------- Running registration: T1w space and MNI152Nonlin2006 (FSLstandard) ------- #
 
       s=', '
       print('Calculating Outliers: ' + imgpath)
@@ -776,8 +744,6 @@ def run_outliers(layout,entry):
   ## end run_outliers
 
 def save_outliers(layout,entry):
-  import os
-  import sys
 
   # move outputs to permanent location...
   for func in layout.get(subject=entry.pid, space='native', desc='preproc', extension='nii.gz', suffix=['bold']):
@@ -813,12 +779,7 @@ def save_outliers(layout,entry):
 
     #save_outliers
 
-
 def run_fast(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
 
   returnflag=False
 
@@ -851,8 +812,6 @@ def run_fast(layout,entry):
   return returnflag
 
 def save_fast(layout,entry):
-  import os
-  import sys
 
   t1w=layout.get(subject=entry.pid, extension='nii.gz', suffix='T1w')
   imgpath=t1w[0].path
@@ -884,12 +843,8 @@ def save_fast(layout,entry):
     
   ## end save_fast
 
-
 def run_aroma_icamodel(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
+
 
 
   jobs=[];
@@ -936,13 +891,7 @@ def run_aroma_icamodel(layout,entry):
   return returnflag
   ## end run_aroma_icamodel
 
-
 def run_aroma_classify(layout,entry):
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
-
 
   jobs=[];
   returnflag=False
@@ -991,10 +940,7 @@ def run_aroma_classify(layout,entry):
 
   return returnflag
 
-
 def save_aroma_outputs(layout,entry):
-  import os
-  import sys
 
   # move outputs to permanent location...
   for func in layout.get(subject=entry.pid, space='native', desc='preproc', extension='nii.gz', suffix=['bold']):
@@ -1025,9 +971,6 @@ def save_aroma_outputs(layout,entry):
     os.system('cp -p ' + infile + ' ' + entry.outputs + '/' + outfile)
 
 def generate_confounds_file(path,task):
-  import os
-  import sys
-  import pandas as pd
 
   # after running fsl outliers - put all coundounds into one file
   
@@ -1080,11 +1023,6 @@ def generate_report():
 
 def run_cleanup(entry):
 
-  import os
-  import sys
-  import subprocess
-  import multiprocessing
-
   jobs=[];
 
   #concatenate and move logs to final dir...
@@ -1100,11 +1038,6 @@ def run_cleanup(entry):
 
 
 def main(argv):
-  import glob
-  import re
-  import os
-  import sys
-  import warnings
 
   # get user entry
   entry = parse_arguments(argv)
